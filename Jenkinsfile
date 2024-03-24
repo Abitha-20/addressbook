@@ -18,7 +18,7 @@ pipeline {
 
     stages {
         stage('Compile') {
-            agent {label 'linux_slave'}
+            agent any
             steps {
                echo "compiling the code ${params.APPVERSION}"
                sh 'mvn compile'
