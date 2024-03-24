@@ -6,54 +6,62 @@ pipeline {
         maven "mymaven"
     }
 
+    parameters{
+        string(name:'Env',defaultValue:'Test',description:'version to deploy')
+        booleanParam(name:'executeTests',defaultValue: true,description:'decide to run tc')
+        choice(name:'APPVERSION',choices:['1.1','1.2','1.3'])
+    }
+
     environment{
-        BUILD_SERVER='ec2-user@172.31.0.234'
+        PACKAGE_SERVER='ec2-user@52.91.218.231'
     }
 
     stages {
         stage('Compile') {
-            agent any
+            agent {label 'linux_slave'}
             steps {
-                script{
-                    echo "Compiling the code"
-                    sh "mvn compile"
-                }
-                
+               echo "compiling the code ${params.APPVERSION}"
+               sh 'mvn compile'
             }
-
-            
         }
-        stage('UnitTest') { // running on slave1
-            //agent {label 'linux_slave'}
+        stage('UnitTest') {
             agent any
-            steps {
-                script{
-                    echo "RUNNING THE TC"
-                    sh "mvn test"
-                }
-                }
-            
-            post{
-                always{
-                    junit 'target/surefire-reports/*.xml'
+            when{
+                expression{
+                    params.executeTests == true
                 }
             }
-            
+            steps {
+                script{
+               echo "Test the code"
+               sh 'mvn test'
+            }
+            }
         }
-        stage('Package') { // running on slave2 via ssh-agent
+        stage('Package') {
             agent any
             steps {
                 script{
-                    sshagent(['slave2']) {
-                    echo "Executing the code"
-                    sh "scp  -o StrictHostKeyChecking=no server-config.sh ${BUILD_SERVER}:/home/ec2-user"
-                    sh "ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} 'bash server-config.sh'"
-                }
-                }
-                
+                sshagent(['slave2']) {
+               echo "Package the code ${params.Env}"
+               sh "scp -o StrictHostKeyChecking=no server-config.sh ${PACKAGE_SERVER}:/home/ec2-user"
+               sh "ssh -o StrictHostKeyChecking=no ${PACKAGE_SERVER} 'bash ~/server-config.sh'"
+               
             }
-
-            
+            }
+        }
+        }
+        stage('DEPLOY') {
+            input{
+                message "Select the PLATFFORM to deploy"
+                ok "PLATFORM Selected"
+                parameters{
+                    choice(name:'PLATFORM',choices:['EKS','ONPREM_K8s','SERVERS'])
+                }
+            }
+            steps {
+               echo "DEPLOY the code ${params.Env}"
+            }
         }
     }
 }
