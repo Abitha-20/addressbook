@@ -11,7 +11,7 @@ then
    echo "repo is already cloned and exists"
    cd /home/ec2-user/addressbook
    git checkout master
-   #git pull origin master
+   git pull origin master
 else
    git clone https://github.com/Abitha-20/addressbook.git
    git checkout master
