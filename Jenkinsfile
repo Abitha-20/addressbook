@@ -3,65 +3,76 @@ pipeline {
 
     tools {
         // Install the Maven version configured as "M3" and add it to the path.
-        maven "my_maven"
+        maven "mymaven"
     }
-
-    parameters{
-        string(name:'Env',defaultValue:'Test',description:'version to deploy')
-        booleanParam(name:'executeTests',defaultValue: true,description:'decide to run tc')
-        choice(name:'APPVERSION',choices:['1.1','1.2','1.3'])
-    }
-
+    
     environment{
-        PACKAGE_SERVER='ec2-user@52.91.218.231'
+        BUILD_SERVER_IP='ec2-user@54.209.175.61'
+        IMAGE_NAME='abithamanoaharan/my_image'
+        DEPLOY_SERVER_IP='ec2-user@44.204.145.63'
     }
 
     stages {
         stage('Compile') {
+            // agent {label "linux_slave"}
             agent any
-            steps {
-               echo "compiling the code ${params.APPVERSION}"
-               sh 'mvn compile'
+            steps {              
+              script{
+                     echo "COMPILING"
+                     sh "mvn compile"
+              }             
+            }
+            
+        }
+        stage('Test') {
+            agent any
+            steps {           
+              script{
+                   echo "RUNNING THE TC"
+                   sh "mvn test"
+                }              
+             
+            }            
+        
+        post{
+            always{
+                junit 'target/surefire-reports/*.xml'
             }
         }
-        stage('UnitTest') {
-            agent any
-            when{
-                expression{
-                    params.executeTests == true
-                }
-            }
-            steps {
-                script{
-               echo "Test the code"
-               sh 'mvn test'
-            }
-            }
         }
-        stage('Package') {
+        stage('Containerise the app') {
             agent any
-            steps {
+            steps {              
+
                 script{
+                     echo "Creating the docker image and Push to registry"
                 sshagent(['slave2']) {
-               echo "Package the code ${params.Env}"
-               sh "scp -o StrictHostKeyChecking=no server-config.sh ${PACKAGE_SERVER}:/home/ec2-user"
-               sh "ssh -o StrictHostKeyChecking=no ${PACKAGE_SERVER} 'bash ~/server-config.sh'"
-               
-            }
-            }
-        }
-        }
-        stage('DEPLOY') {
-            input{
-                message "Select the PLATFFORM to deploy"
-                ok "PLATFORM Selected"
-                parameters{
-                    choice(name:'PLATFORM',choices:['EKS','ONPREM_K8s','SERVERS'])
+                withCredentials([usernamePassword(credentialsId: 'docker_hub_credentials', passwordVariable: 'password', usernameVariable: 'username')]) {
+                sh "scp -o StrictHostKeyChecking=no server-script.sh ${BUILD_SERVER_IP}:/home/ec2-user"
+                sh "ssh -o StrictHostKeyChecking=no ${BUILD_SERVER_IP} 'bash server-script.sh ${IMAGE_NAME} ${BUILD_NUMBER}'"
+                sh "ssh ${BUILD_SERVER_IP} sudo docker login -u ${username} -p ${password}"
+                sh "ssh ${BUILD_SERVER_IP} sudo docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
                 }
-            }
-            steps {
-               echo "DEPLOY the code ${params.Env}"
-            }
+                }             
+                }
+            }            
         }
+         stage('Deploy the docker container on Test server') {
+            agent any
+            steps {            
+                script{
+                     echo "Deploy the container"
+                sshagent(['slave2']) {
+                withCredentials([usernamePassword(credentialsId: 'docker_hub_credentials', passwordVariable: 'password', usernameVariable: 'username')]) {
+                sh "ssh -o StrictHostKeyChecking=no ${DEPLOY_SERVER_IP} sudo yum install docker -y"
+                 sh "ssh -o StrictHostKeyChecking=no ${DEPLOY_SERVER_IP} sudo systemctl start docker"
+                sh "ssh ${DEPLOY_SERVER_IP} sudo docker login -u ${username} -p ${password}"
+                sh "ssh ${DEPLOY_SERVER_IP} sudo docker run -itd -P ${IMAGE_NAME}:${BUILD_NUMBER}"
+                }
+                }             
+                }
+            }            
+        }
+
     }
 }
