@@ -7,9 +7,9 @@ pipeline {
     }
     
     environment{
-        BUILD_SERVER_IP='ec2-user@54.209.175.61'
+        BUILD_SERVER_IP='ec2-user@172.31.42.40'
         IMAGE_NAME='abithamanoaharan/my_image'
-        DEPLOY_SERVER_IP='ec2-user@44.204.145.63'
+        DEPLOY_SERVER_IP='ec2-user@172.31.87.81'
     }
 
     stages {
