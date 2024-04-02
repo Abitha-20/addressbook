@@ -10,11 +10,11 @@ if [ -d "addressbook" ]
 then
    echo "repo is already cloned and exists"
    cd /home/ec2-user/addressbook
-   git checkout test1
-   git pull origin test1
+   git checkout master
+   git pull origin master
 else
-   git clone https://github.com/preethid/addressbook.git
-   git checkout test1
+   git clone https://github.com/Abitha-20/addressbook.git
+   git checkout master
 fi
 
 # mvn package
