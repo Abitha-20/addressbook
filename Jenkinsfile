@@ -8,7 +8,7 @@ pipeline {
     
     environment{
         BUILD_SERVER_IP='ec2-user@172.31.42.40'
-        IMAGE_NAME='abithamanoaharan/my_image'
+        IMAGE_NAME='abithamanoharan/my_image'
         DEPLOY_SERVER_IP='ec2-user@172.31.87.81'
     }
 
